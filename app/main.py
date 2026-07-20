@@ -13,3 +13,9 @@ def root() -> dict[str, str]:
         "version": "0.1.0",
         "status": "running",
     }
+
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {
+        "status": "healthy",
+    }
