@@ -1,0 +1,18 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Build metadata
+*.egg-info/
+
+# Environment variables
+.env
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
