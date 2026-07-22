@@ -1,6 +1,6 @@
 from fastapi import FastAPI
+from app.api.router import api_router
 from app.core.config import settings
-from app.schemas.responses import HealthResponse, RootResponse
 
 
 app = FastAPI(
@@ -10,17 +10,4 @@ app = FastAPI(
     debug= settings.debug,
 )
 
-@app.get("/", response_model = RootResponse)
-def root() -> RootResponse:
-    return RootResponse(
-        name= settings.app_name,
-        version= settings.app_version,
-        environment= settings.environment,
-        status= "running",
-    )
-
-@app.get("/health", response_model= HealthResponse)
-def health_check() -> HealthResponse:
-    return HealthResponse(
-        status= "healthy",
-    )
+app.include_router(api_router)
