@@ -1,21 +1,26 @@
 from fastapi import FastAPI
+from app.core.config import settings
+from app.schemas.responses import HealthResponse, RootResponse
+
 
 app = FastAPI(
-    title="CloudCommerce Platform",
+    title=settings.app_name,
     description=("A cloud-native backend platform for reliable and asynchronous order processing."),
-    version="0.1.0",
+    version=settings.app_version,
+    debug= settings.debug,
 )
 
-@app.get("/")
-def root() -> dict[str, str]:
-    return{
-        "name": "CloudCommerce Platform",
-        "version": "0.1.0",
-        "status": "running",
-    }
+@app.get("/", response_model = RootResponse)
+def root() -> RootResponse:
+    return RootResponse(
+        name= settings.app_name,
+        version= settings.app_version,
+        environment= settings.environment,
+        status= "running",
+    )
 
-@app.get("/health")
-def health_check() -> dict[str, str]:
-    return {
-        "status": "healthy",
-    }
+@app.get("/health", response_model= HealthResponse)
+def health_check() -> HealthResponse:
+    return HealthResponse(
+        status= "healthy",
+    )
