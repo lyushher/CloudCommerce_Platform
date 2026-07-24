@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, HTTPException
 
 
 from app.schemas.orders import(
@@ -32,4 +32,21 @@ def create_order(order_data: OrderCreateRequest) -> OrderResponse:
 
     orders[order.order_id] = order
 
+    return order
+
+
+@router.get("", response_model = list[OrderResponse])
+def list_orders() -> list[OrderResponse]:
+    return list(orders.values())
+
+
+@router.get("/{order_id}", response_model = OrderResponse)
+def get_order(order_id: UUID) -> OrderResponse:
+    order = orders.get(order_id)
+
+    if order is None:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail="Order not found")
+    
     return order
