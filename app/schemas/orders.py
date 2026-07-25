@@ -13,6 +13,7 @@ class OrderStatus(str, Enum):
 
 
 class OrderItem(BaseModel):
+    product_id: UUID
     product_name: str= Field(min_length=1, max_length=150)
     quantity: int = Field(gt=0)
     price: Decimal = Field(gt=0, decimal_places=2)
