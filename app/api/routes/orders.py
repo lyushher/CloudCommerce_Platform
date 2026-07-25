@@ -2,6 +2,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 from fastapi import APIRouter, status, HTTPException
+from app.api.routes.products import products
+
 
 
 from app.schemas.orders import(
@@ -16,6 +18,26 @@ orders: dict[UUID, OrderResponse] = {}
 
 @router.post("", response_model = OrderResponse, status_code = status.HTTP_201_CREATED)
 def create_order(order_data: OrderCreateRequest) -> OrderResponse:
+    validated_products = []
+
+    for item in order_data.items:
+        product = products.get(item.product_id)
+
+        if product is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"Product {item.product_id} not found")
+        
+        if not product.is_active:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,detail=f"Product {product.name} is not active")
+        
+        if product.stock_quantity < item.quantity:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail=f"Insufficient stock for {product.name}")
+        
+        validated_products.append((product, item.quantity))
+
+    
+    for product, quantity in validated_products:
+        product.stock_quantity -= quantity
+    
     total_amount = sum(
         item.price * item.quantity
         for item in order_data.items
