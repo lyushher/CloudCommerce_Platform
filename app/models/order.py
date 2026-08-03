@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
+
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.core.database import Base
 from app.schemas.orders import OrderStatus
 

@@ -1,10 +1,7 @@
 from fastapi.testclient import TestClient
-from app.main import app
 
 
-client = TestClient(app)
-
-def test_create_product():
+def test_create_product(client: TestClient) -> None:
     response = client.post("/products", json={
         "name": "Mechanical Keyboard",
         "description": "Wireless mechanical keyboard",
@@ -29,7 +26,7 @@ def test_create_product():
 
 
 
-def test_get_product_by_id():
+def test_get_product_by_id(client: TestClient) -> None:
     create_response = client.post("/products", json={
         "name": "Laptop",
         "description": "Developer laptop",
@@ -38,6 +35,8 @@ def test_get_product_by_id():
         "category": "Computers",
         },
     )
+
+    assert create_response.status_code == 201
 
     product_id = create_response.json()["product_id"]
 

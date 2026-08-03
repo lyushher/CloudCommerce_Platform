@@ -1,7 +1,8 @@
-from datetime import datetime 
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
