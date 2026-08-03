@@ -2,11 +2,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from app.api.routes.orders import orders
 
-
-def setup_function() -> None :
-    orders.clear()
 
 def test_create_order(client: TestClient) -> None:
     product_response = client.post("/products", json={
@@ -138,3 +134,95 @@ def test_create_order_with_inactive_product_returns_400(client: TestClient) -> N
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Product Keyboard is not active"
+
+
+
+def test_list_orders_returns_persisted_orders(client: TestClient) -> None:
+    product_response = client.post("/products", json={
+            "name": "Mouse",
+            "description": "Wireless Mouse",
+            "category": "Accessories",
+            "price": 49.99,
+            "stock_quantity": 5,
+    })
+
+    assert product_response.status_code == 201
+    product = product_response.json()
+
+    create_response = client.post("/orders",json={
+        "customer_name": "Firdevs",
+        "items": [
+            {
+                "product_id": product["product_id"],
+                "product_name": product["name"],
+                "quantity": 1,
+                "price": product["price"],
+            }
+        ],
+    })
+
+    assert create_response.status_code == 201
+    created_order = create_response.json()
+
+    response = client.get("/orders")
+
+    assert response.status_code == 200
+
+    orders = response.json()
+
+    assert len(orders) == 1
+    assert orders[0]["order_id"] == created_order["order_id"]
+    assert orders[0]["customer_name"] == "Firdevs"
+    assert orders[0]["items"][0]["product_id"] == product["product_id"]
+
+
+def test_get_order_returns_persisted_order(client: TestClient) -> None:
+    product_response = client.post(
+        "/products",
+        json={
+            "name": "Monitor",
+            "description": "27-inch monitor",
+            "category": "Electronics",
+            "price": 299.99,
+            "stock_quantity": 3,
+        },
+    )
+
+    assert product_response.status_code == 201
+    product = product_response.json()
+
+    create_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Firdevs",
+            "items": [
+                {
+                    "product_id": product["product_id"],
+                    "product_name": product["name"],
+                    "quantity": 1,
+                    "price": product["price"],
+                }
+            ],
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_order = create_response.json()
+
+    response = client.get(f"/orders/{created_order['order_id']}")
+
+    assert response.status_code == 200
+
+    order = response.json()
+
+    assert order["order_id"] == created_order["order_id"]
+    assert order["customer_name"] == "Firdevs"
+    assert order["total_amount"] == "299.99"
+    assert order["items"][0]["product_name"] == "Monitor"
+
+
+def test_get_missing_order_returns_404(client: TestClient) -> None:
+    response = client.get(f"/orders/{uuid4()}")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Order not found"

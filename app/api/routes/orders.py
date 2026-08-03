@@ -1,23 +1,24 @@
-from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import select
 
 from app.core.database import get_db
 from app.models.product import Product
+from app.models.order import Order, OrderItem
 from app.schemas.orders import OrderCreateRequest, OrderResponse, OrderStatus
 
-router = APIRouter(prefix="/orders", tags=["Orders"])
 
-orders: dict[UUID, OrderResponse] = {}
+
+router = APIRouter(prefix="/orders", tags=["Orders"])
 
 
 
 @router.post("", response_model = OrderResponse, status_code = status.HTTP_201_CREATED)
-def create_order(order_data: OrderCreateRequest, db: Session = Depends(get_db)) -> OrderResponse:
-    validated_products = []
+def create_order(order_data: OrderCreateRequest, db: Session = Depends(get_db)) -> Order:
+    validated_products: list[tuple[Product, int]] = []
 
     for item in order_data.items:
         product = db.get(Product, item.product_id)
@@ -33,39 +34,60 @@ def create_order(order_data: OrderCreateRequest, db: Session = Depends(get_db)) 
         
         validated_products.append((product, item.quantity))
 
+    total_amount = sum(product.price * quantity
+                        for product, quantity in validated_products)
+
+    db_order = Order(customer_name=order_data.customer_name, total_amount=Decimal(total_amount),
+                      status=OrderStatus.pending)
+
     
     for product, quantity in validated_products:
         product.stock_quantity -= quantity
 
-    db.commit()
-    
-    total_amount = sum(
-        item.price * item.quantity
-        for item in order_data.items
-    )
+        db_order.items.append(OrderItem(
+            product_id = product.product_id,
+            product_name = product.name,
+            quantity = quantity,
+            price = product.price
+        ))
 
-    order = OrderResponse(
-        order_id=uuid4(),
-        customer_name = order_data.customer_name,
-        items= order_data.items,
-        total_amount= Decimal(total_amount),
-        status = OrderStatus.pending,
-        created_at= datetime.now(UTC),
-    )
+    db.add(db_order)
 
-    orders[order.order_id] = order
+    try:
+        db.commit()
+        db.refresh(db_order)
 
-    return order
+    except Exception:
+        db.rollback()
+        raise
+
+    return db_order
 
 
 @router.get("", response_model = list[OrderResponse])
-def list_orders() -> list[OrderResponse]:
-    return list(orders.values())
+def list_orders(db: Session=Depends(get_db)) -> list[Order]:
+    return(
+        db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .order_by(Order.created_at.desc())
+        )
+        .scalars()
+        .all()
+    )
 
 
 @router.get("/{order_id}", response_model = OrderResponse)
-def get_order(order_id: UUID) -> OrderResponse:
-    order = orders.get(order_id)
+def get_order(order_id: UUID,
+              db: Session = Depends(get_db)) -> Order:
+    order = (
+        db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.order_id == order_id)
+        )
+        .scalar_one_or_none()
+    )
 
     if order is None:
         raise HTTPException(
