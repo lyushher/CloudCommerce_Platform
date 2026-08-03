@@ -9,6 +9,7 @@ dependencies = [
     "pydantic-settings",
     "sqlalchemy>=2.0,<3.0",
     "psycopg[binary]>=3.2,<4.0",
+    "alembic>=1.18,<2.0",
 ]
 
 [project.optional-dependencies]
@@ -35,3 +36,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["alembic*", "tests*"]
