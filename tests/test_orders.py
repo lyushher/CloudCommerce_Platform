@@ -1,7 +1,9 @@
-from uuid import uuid4
-
+from uuid import uuid4, UUID
+from decimal import Decimal
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+from app.models.order import Order
 from fastapi.testclient import TestClient
-
 
 
 def test_create_order(client: TestClient) -> None:
@@ -60,6 +62,7 @@ def test_create_order_with_missing_product_returns_404(client: TestClient) -> No
 
     assert response.status_code == 404
     assert "not found" in response.json()["detail"]
+
 
 
 def test_create_order_with_insufficient_stock_returns_409(client: TestClient) -> None:
@@ -226,3 +229,62 @@ def test_get_missing_order_returns_404(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Order not found"
+
+
+def test_created_order_and_items_are_persisted(
+    client: TestClient,
+    db_session: Session) -> None:
+
+    product_response = client.post(
+        "/products",
+        json={
+            "name": "Persistence Mouse",
+            "description": "Order persistence test product",
+            "category": "Accessories",
+            "price": "59.99",
+            "stock_quantity": 4,
+        },
+    )
+
+    assert product_response.status_code == 201
+    product = product_response.json()
+
+    order_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Firdevs",
+            "items": [
+                {
+                    "product_id": product["product_id"],
+                    "product_name": product["name"],
+                    "quantity": 2,
+                    "price": product["price"],
+                }
+            ],
+        },
+    )
+
+    assert order_response.status_code == 201
+
+    order_id = UUID(order_response.json()["order_id"])
+
+    persisted_order = (
+        db_session.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.order_id == order_id)
+        )
+        .scalar_one_or_none()
+    )
+
+    assert persisted_order is not None
+    assert persisted_order.customer_name == "Firdevs"
+    assert persisted_order.total_amount == Decimal("119.98")
+    assert len(persisted_order.items) == 1
+
+    persisted_item = persisted_order.items[0]
+
+    assert persisted_item.product_id == UUID(product["product_id"])
+    assert persisted_item.product_name == "Persistence Mouse"
+    assert persisted_item.quantity == 2
+    assert persisted_item.price == Decimal("59.99")

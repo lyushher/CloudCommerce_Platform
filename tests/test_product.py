@@ -1,4 +1,9 @@
 from fastapi.testclient import TestClient
+from uuid import UUID
+from sqlalchemy.orm import Session
+from app.models.product import Product
+from decimal import Decimal
+
 
 
 def test_create_product(client: TestClient) -> None:
@@ -45,3 +50,28 @@ def test_get_product_by_id(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["product_id"] == product_id
     assert response.json()["name"] == "Laptop"
+
+
+
+def test_create_product_is_persisted(
+        client: TestClient,
+        db_session: Session) -> None:
+    
+    response = client.post("/products", json={
+        "name": "Database Keyboard",
+        "description": "Product persistence test",
+        "price": "99.99",
+        "stock_quantity": 15,
+        "category": "Electronics",
+    })
+
+    assert response.status_code == 201
+
+    product_id = UUID(response.json()["product_id"])
+
+    persisted_product = db_session.get(Product, product_id)
+
+    assert persisted_product is not None
+    assert persisted_product.name == "Database Keyboard"
+    assert persisted_product.price == Decimal("99.99")
+    assert persisted_product.stock_quantity == 15
