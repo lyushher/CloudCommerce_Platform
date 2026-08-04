@@ -1,4 +1,8 @@
+from uuid import UUID
+from sqlalchemy.orm import Session
+from app.models.product import Product
 from fastapi.testclient import TestClient
+
 
 
 def create_test_product(client: TestClient) -> dict:
@@ -70,3 +74,21 @@ def test_missing_product_returns_404(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Product not found"}
+
+
+
+def test_inventory_update_is_persisted(client: TestClient,
+                                        db_session: Session) -> None:
+    product = create_test_product(client)
+
+    response = client.put(f"/inventory/{product['product_id']}",
+                          json={"stock_quantity": 42})
+
+    assert response.status_code == 200
+
+    persisted_product = db_session.get(
+        Product, UUID(product["product_id"])
+    )
+
+    assert persisted_product is not None
+    assert persisted_product.stock_quantity == 42
